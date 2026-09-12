@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 import random
 import streamlit as st
 
@@ -6,8 +7,8 @@ st.set_page_config(
     page_title="ClassShift • Gestione Banchi", page_icon="🚀", layout="wide"
 )
 
-# Elenco dei nominativi forniti (18 alunni + 1 posto libero per completare i 19 posti della classe)
-ELENCO_INIZIALE = [
+# Elenco iniziale degli alunni (18 alunni + 1 posto libero)
+ELENCO_BASE = [
     "Calzerano Filippo",
     "Michele Xhaxhi",
     "Luca Ferrari",
@@ -29,36 +30,108 @@ ELENCO_INIZIALE = [
     "--- Posto Libero ---",
 ]
 
-# Inizializzazione dello stato della sessione
-if "alunni" not in st.session_state:
-    st.session_state.alunni = ELENCO_INIZIALE.copy()
 
-st.title("🚀 ClassShift")
-st.caption(
-    "Disposizione dinamica dell'aula • 1 banco da 3 posti e 8 banchi da 2 posti"
+# --- CALCOLO GIORNI EFFETTIVI DI LEZIONE E TURNO ---
+def calcola_turno_corrente():
+    oggi = date.today()
+    inizio_scuola = date(2026, 9, 15)
+    fine_scuola = date(2027, 6, 10)
+
+    # Date escluse (Vacanze + Festivi rossi)
+    festivi_singoli = {
+        date(2026, 11, 1),  # Tutti i Santi
+        date(2026, 12, 8),  # Immacolata
+        date(2027, 4, 25),  # Liberazione
+        date(2027, 5, 1),  # Festa del Lavoro
+        date(2027, 6, 2),  # Festa della Repubblica
+    }
+
+    # Vacanze di Natale 2026 (24 dic 2026 - 6 gen 2027)
+    natale_inizio = date(2026, 12, 24)
+    natale_fine = date(2027, 1, 6)
+
+    # Vacanze di Pasqua 2027 (25 mar 2027 - 30 mar 2027)
+    pasqua_inizio = date(2027, 3, 25)
+    pasqua_fine = date(2027, 3, 30)
+
+    # Controllo stato fuori dal periodo scolastico
+    if oggi < inizio_scuola:
+        return 0, inizio_scuola, fine_scuola, True, "Scuola non ancora iniziata"
+    if oggi > fine_scuola:
+        return 0, inizio_scuola, fine_scuola, True, "Anno scolastico terminato"
+
+    # Conteggio dei giorni di lezione effettivi dal 15 settembre ad oggi
+    giorni_lezione = 0
+    curr = inizio_scuola
+
+    while curr <= oggi:
+        # Se è sabato (5) o domenica (6), oppure un festivo o vacanza -> non si conta
+        if curr.weekday() < 5:  # Lunedì-Venerdì
+            is_natale = natale_inizio <= curr <= natale_fine
+            is_pasqua = pasqua_inizio <= curr <= pasqua_fine
+            is_festivo = curr in festivi_singoli
+
+            if not (is_natale or is_pasqua or is_festivo):
+                giorni_lezione += 1
+        curr += timedelta(days=1)
+
+    # Ogni turno corrisponde a 10 giorni effettivi di lezione (2 settimane di scuola)
+    numero_turno = (giorni_lezione - 1) // 10 if giorni_lezione > 0 else 0
+
+    return numero_turno, inizio_scuola, fine_scuola, False, ""
+
+
+num_turno, inizio_scuola, fine_scuola, e_fuori_periodo, nota = (
+    calcola_turno_corrente()
 )
+
+
+def ottieni_alunni_ruotati(shift):
+    if not st.session_state.get("elenco_personalizzato"):
+        base = ELENCO_BASE.copy()
+    else:
+        base = st.session_state.elenco_personalizzato.copy()
+
+    shift = shift % len(base)
+    return base[-shift:] + base[:-shift]
+
+
+# Inizializzazione della sessione
+if "elenco_personalizzato" not in st.session_state:
+    st.session_state.elenco_personalizzato = ELENCO_BASE.copy()
+
+if "alunni" not in st.session_state:
+    st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
+
+# Header App
+st.title("🚀 ClassShift")
+
+if e_fuori_periodo:
+    st.info(f"ℹ️ {nota} (Periodo di riferimento: 15/09/2026 – 10/06/2027).")
+else:
+    st.caption(
+        f"Anno Scolastico 2026/2027 | **Turno Attuale: N° {num_turno + 1}** (Cambio ogni 10 giorni effettivi di lezione)"
+    )
 
 # --- BARRA DEI COMANDI ---
 col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
 with col_btn1:
-    if st.button("🔄 Ruota Banchi (Shift 2 Settimane)", use_container_width=True):
-        # Shift circolare: l'ultimo passa in prima posizione
-        ultimo = st.session_state.alunni.pop()
-        st.session_state.alunni.insert(0, ultimo)
-        st.success("Banchi ruotati con successo!")
+    if st.button("📅 Ripristina Rotazione Calendario", use_container_width=True):
+        st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
+        st.success(f"Posizioni aggiornate al Turno {num_turno + 1}!")
 
 with col_btn2:
-    if st.button("🎲 Casuale", use_container_width=True):
+    if st.button("🎲 Casuale (Estemporaneo)", use_container_width=True):
         random.shuffle(st.session_state.alunni)
-        st.success("Disposizione rimescolata!")
+        st.success("Disposizione rimescolata per questa sessione!")
 
 with col_btn3:
     with st.popover("✏️ Modifica Elenco Nomi"):
         st.write("Inserisci o modifica un nome per riga (massimo 19):")
         testo_nomi = st.text_area(
             "Nomi Alunni",
-            value="\n".join(st.session_state.alunni),
+            value="\n".join(st.session_state.elenco_personalizzato),
             height=300,
             label_visibility="collapsed",
         )
@@ -68,7 +141,8 @@ with col_btn3:
             ][:19]
             while len(righe) < 19:
                 righe.append(f"Posto Libero {len(righe)+1}")
-            st.session_state.alunni = righe
+            st.session_state.elenco_personalizzato = righe
+            st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
             st.rerun()
 
 st.divider()
