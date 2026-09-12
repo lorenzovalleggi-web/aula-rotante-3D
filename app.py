@@ -352,6 +352,3 @@ with tab_calendario:
         )
 
     st.dataframe(data_turni, use_container_width=True, hide_index=True)
-
-
-    
