@@ -3,7 +3,7 @@ import streamlit as st
 
 # Configurazione pagina
 st.set_page_config(
-    page_title="Gestione Banchi Classe", page_icon="🏫", layout="wide"
+    page_title="ClassShift • Gestione Banchi", page_icon="🚀", layout="wide"
 )
 
 # Elenco dei nominativi forniti (18 alunni + 1 posto libero per completare i 19 posti della classe)
@@ -33,16 +33,16 @@ ELENCO_INIZIALE = [
 if "alunni" not in st.session_state:
     st.session_state.alunni = ELENCO_INIZIALE.copy()
 
-st.title("🏫 Gestione Rotazione Banchi")
+st.title("🚀 ClassShift")
 st.caption(
-    "Disposizione della classe • 1 banco da 3 posti e 8 banchi da 2 posti"
+    "Disposizione dinamica dell'aula • 1 banco da 3 posti e 8 banchi da 2 posti"
 )
 
 # --- BARRA DEI COMANDI ---
 col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
 with col_btn1:
-    if st.button("🔄 Ruota Banchi (Cambio 2 Settimane)", use_container_width=True):
+    if st.button("🔄 Ruota Banchi (Shift 2 Settimane)", use_container_width=True):
         # Shift circolare: l'ultimo passa in prima posizione
         ultimo = st.session_state.alunni.pop()
         st.session_state.alunni.insert(0, ultimo)
