@@ -1,3 +1,6 @@
+
+
+
 from datetime import date, timedelta
 import random
 import streamlit as st
@@ -31,57 +34,54 @@ ELENCO_BASE = [
 ]
 
 
-# --- CALCOLO GIORNI EFFETTIVI DI LEZIONE E TURNO ---
+# --- LOGICA DI ROTAZIONE OGNI 2 SETTIMANE (14 GIORNI) ---
 def calcola_turno_corrente():
     oggi = date.today()
     inizio_scuola = date(2026, 9, 15)
     fine_scuola = date(2027, 6, 10)
 
-    # Date escluse (Vacanze + Festivi rossi)
-    festivi_singoli = {
-        date(2026, 11, 1),  # Tutti i Santi
-        date(2026, 12, 8),  # Immacolata
-        date(2027, 4, 25),  # Liberazione
-        date(2027, 5, 1),  # Festa del Lavoro
-        date(2027, 6, 2),  # Festa della Repubblica
-    }
-
-    # Vacanze di Natale 2026 (24 dic 2026 - 6 gen 2027)
+    # Periodi di sospensione (Vacanze di Natale e Pasqua)
     natale_inizio = date(2026, 12, 24)
     natale_fine = date(2027, 1, 6)
-
-    # Vacanze di Pasqua 2027 (25 mar 2027 - 30 mar 2027)
     pasqua_inizio = date(2027, 3, 25)
     pasqua_fine = date(2027, 3, 30)
 
-    # Controllo stato fuori dal periodo scolastico
     if oggi < inizio_scuola:
-        return 0, inizio_scuola, fine_scuola, True, "Scuola non ancora iniziata"
+        return (
+            0,
+            inizio_scuola,
+            fine_scuola,
+            True,
+            "L'anno scolastico inizierà il 15 settembre.",
+        )
     if oggi > fine_scuola:
-        return 0, inizio_scuola, fine_scuola, True, "Anno scolastico terminato"
+        return 0, inizio_scuola, fine_scuola, True, "Anno scolastico terminato."
 
-    # Conteggio dei giorni di lezione effettivi dal 15 settembre ad oggi
-    giorni_lezione = 0
+    # Calcolo dei giorni effettivi trascorsi escludendo le vacanze lunghe
+    giorni_validi = 0
     curr = inizio_scuola
 
     while curr <= oggi:
-        # Se è sabato (5) o domenica (6), oppure un festivo o vacanza -> non si conta
-        if curr.weekday() < 5:  # Lunedì-Venerdì
-            is_natale = natale_inizio <= curr <= natale_fine
-            is_pasqua = pasqua_inizio <= curr <= pasqua_fine
-            is_festivo = curr in festivi_singoli
+        is_natale = natale_inizio <= curr <= natale_fine
+        is_pasqua = pasqua_inizio <= curr <= pasqua_fine
 
-            if not (is_natale or is_pasqua or is_festivo):
-                giorni_lezione += 1
+        if not (is_natale or is_pasqua):
+            giorni_validi += 1
         curr += timedelta(days=1)
 
-    # Ogni turno corrisponde a 10 giorni effettivi di lezione (2 settimane di scuola)
-    numero_turno = (giorni_lezione - 1) // 10 if giorni_lezione > 0 else 0
+    # Ogni 14 giorni (2 settimane) scatta un nuovo turno di rotazione
+    numero_turno = (giorni_validi - 1) // 14
 
-    return numero_turno, inizio_scuola, fine_scuola, False, ""
+    # Calcolo delle date di inizio e fine del turno attuale
+    inizio_turno_attuale = inizio_scuola + timedelta(days=numero_turno * 14)
+    fine_turno_attuale = inizio_turno_attuale + timedelta(days=13)
+
+    info_turno = f"Turno N° {numero_turno + 1} (Valido dal {inizio_turno_attuale.strftime('%d/%m')} al {fine_turno_attuale.strftime('%d/%m')})"
+
+    return numero_turno, inizio_scuola, fine_scuola, False, info_turno
 
 
-num_turno, inizio_scuola, fine_scuola, e_fuori_periodo, nota = (
+num_turno, inizio_scuola, fine_scuola, e_fuori_periodo, info_turno = (
     calcola_turno_corrente()
 )
 
@@ -107,24 +107,24 @@ if "alunni" not in st.session_state:
 st.title("🚀 ClassShift")
 
 if e_fuori_periodo:
-    st.info(f"ℹ️ {nota} (Periodo di riferimento: 15/09/2026 – 10/06/2027).")
+    st.info(f"ℹ️ {info_turno}")
 else:
     st.caption(
-        f"Anno Scolastico 2026/2027 | **Turno Attuale: N° {num_turno + 1}** (Cambio ogni 10 giorni effettivi di lezione)"
+        f"📅 Rotazione quindicinale (2 settimane) | **{info_turno}** | Periodo: 15/09/2026 – 10/06/2027"
     )
 
 # --- BARRA DEI COMANDI ---
 col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
 with col_btn1:
-    if st.button("📅 Ripristina Rotazione Calendario", use_container_width=True):
+    if st.button("📅 Ripristina Rotazione 2 Settimane", use_container_width=True):
         st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
         st.success(f"Posizioni aggiornate al Turno {num_turno + 1}!")
 
 with col_btn2:
     if st.button("🎲 Casuale (Estemporaneo)", use_container_width=True):
         random.shuffle(st.session_state.alunni)
-        st.success("Disposizione rimescolata per questa sessione!")
+        st.success("Disposizione rimescolata per questa lezione!")
 
 with col_btn3:
     with st.popover("✏️ Modifica Elenco Nomi"):
