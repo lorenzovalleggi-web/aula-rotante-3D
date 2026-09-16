@@ -34,7 +34,7 @@ ELENCO_BASE = [
 ]
 
 
-# --- LOGICA DEL CALENDARIO E DEI TURNI ---
+# --- LOGICA CORRETTA DEL CALENDARIO E DEI TURNI ---
 def calcola_tutti_i_turni():
     inizio_scuola = date(2026, 9, 15)
     fine_scuola = date(2027, 6, 10)
@@ -48,14 +48,18 @@ def calcola_tutti_i_turni():
 
     while curr <= fine_scuola:
         t_inizio = curr
-        dias_contati = 0
+        giorni_lezione = 0
 
-        while dias_contati < 14 and curr <= fine_scuola:
-            if not (
-                natale_inizio <= curr <= natale_fine
-                or pasqua_inizio <= curr <= pasqua_fine
-            ):
-                dias_contati += 1
+        # Ogni turno dura 10 giorni effettivi di lezione (2 settimane scolastiche Lun-Ven)
+        while giorni_lezione < 10 and curr <= fine_scuola:
+            # Esclude sabati (5) e domeniche (6)
+            if curr.weekday() < 5:
+                # Esclude festività natalizie e pasquali
+                if not (
+                    natale_inizio <= curr <= natale_fine
+                    or pasqua_inizio <= curr <= pasqua_fine
+                ):
+                    giorni_lezione += 1
             curr += timedelta(days=1)
 
         t_fine = curr - timedelta(days=1)
@@ -87,7 +91,8 @@ if "assenti" not in st.session_state:
     st.session_state.assenti = []
 
 if "data_selezionata" not in st.session_state:
-    st.session_state.data_selezionata = date(2026, 9, 16)
+    oggi = date.today()
+    st.session_state.data_selezionata = max(oggi, date(2026, 9, 15))
 
 turno_attuale = ottieni_turno_per_data(st.session_state.data_selezionata)
 
@@ -101,11 +106,10 @@ def ottieni_alunni_ruotati(shift):
 if "alunni" not in st.session_state:
     st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
 
-# --- HEADER COMPATTO ---
+# --- CSS E STILE AD ALTO CONTRASTO (OTTIMIZZATO PER LIM) ---
 st.markdown(
     """
     <style>
-    /* STILI GLOBALI E PALETTE LIM (Alto Contrasto) */
     .title-banner {
         display: flex;
         align-items: center;
@@ -123,7 +127,6 @@ st.markdown(
         letter-spacing: 0.5px;
     }
     
-    /* BADGE CONTATORI */
     .badge-container {
         display: flex;
         gap: 10px;
@@ -145,7 +148,6 @@ st.markdown(
         font-weight: bold;
     }
 
-    /* STILI CATTEDRA E BANCHI AD ALTO CONTRASTO */
     .cattedra-box { 
         background: #0284c7; 
         color: white; 
@@ -173,7 +175,6 @@ st.markdown(
         flex-direction: column;
         justify-content: center;
         box-shadow: 0 3px 6px rgba(0,0,0,0.08);
-        transition: transform 0.1s ease;
     }
 
     .banco-triple {
@@ -218,7 +219,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Calcolo alunni effettivi
+# Calcolo alunni effettivi e contatori
 alunni_reali = [
     n for n in st.session_state.elenco_personalizzato if not n.startswith("---")
 ]
@@ -239,7 +240,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA DEI COMANDI COMPATTA ---
+# --- BARRA SUPERIORE DEI COMANDI ---
 c_data, c_reset, c_random, c_edit = st.columns([1.3, 1, 1, 1])
 
 with c_data:
@@ -287,7 +288,7 @@ with c_edit:
             st.rerun()
 
 st.caption(
-    f"📌 **Turno {turno_attuale['numero']}** ({turno_attuale['inizio'].strftime('%d/%m')} - {turno_attuale['fine'].strftime('%d/%m/%Y')})"
+    f"📌 **Turno {turno_attuale['numero']}** ({turno_attuale['inizio'].strftime('%d/%m/%Y')} - {turno_attuale['fine'].strftime('%d/%m/%Y')})"
 )
 st.divider()
 
