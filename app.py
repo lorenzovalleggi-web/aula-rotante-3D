@@ -4,13 +4,13 @@ import streamlit as st
 
 # Configurazione pagina
 st.set_page_config(
-    page_title="BancoFlow • Gestione Aula",
-    page_icon="🧩",
+    page_title="BancoFlow • Classe 3D",
+    page_icon="🏫",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Elenco base di 19 alunni (incluso Olivieri Ryan)
+# Elenco base di 19 alunni della Classe 3D
 ELENCO_BASE = [
     "Calzerano Filippo",
     "Michele Xhaxhi",
@@ -118,7 +118,7 @@ def calcola_totale_assenze_alunno(nome):
     return tot
 
 
-# --- CSS PER L'INTERFACCIA LIM ---
+# --- STILI CSS INTERFACCIA ---
 st.markdown(
     """
     <style>
@@ -157,7 +157,7 @@ tot_presenti = len(alunni_reali) - tot_assenti
 st.markdown(
     f"""
     <div class="title-banner">
-        <div class="title-text">🧩 BancoFlow ({len(alunni_reali)} Alunni)</div>
+        <div class="title-text">🏫 BancoFlow • Classe 3D ({len(alunni_reali)} Alunni)</div>
         <div class="badge-container">
             <span class="badge-presenti">🟢 Presenti: {tot_presenti}</span>
             <span class="badge-assenti">🔴 Assenti oggi: {tot_assenti}</span>
@@ -198,7 +198,7 @@ with c_random:
 with c_edit:
     with st.popover("✏️ Modifica Nomi"):
         testo_nomi = st.text_area(
-            "Nomi Alunni (uno per riga)",
+            "Nomi Alunni Classe 3D (uno per riga)",
             value="\n".join(st.session_state.elenco_personalizzato),
             height=280,
         )
@@ -249,7 +249,7 @@ with tab_mappa:
         </div>
         """
 
-    # Banco Triplo (Posti 1, 2, 3)
+    # Banco Triplo (Prima Fila)
     st.markdown("##### 📌 Prima Fila - Banco Triplo")
     m1, m2, m3 = st.columns(3)
     if len(alunni_disposizione) >= 1:
