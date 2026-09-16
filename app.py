@@ -4,7 +4,10 @@ import streamlit as st
 
 # Configurazione pagina
 st.set_page_config(
-    page_title="ClassShift • Gestione Banchi", page_icon="🚀", layout="wide"
+    page_title="ClassShift • Gestione Banchi",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 # Elenco iniziale degli alunni
@@ -31,67 +34,105 @@ ELENCO_BASE = [
 ]
 
 
-def calcola_turno_corrente():
-    oggi = date.today()
+# --- LOGICA DEL CALENDARIO E DEI TURNI ---
+def calcola_tutti_i_turni():
     inizio_scuola = date(2026, 9, 15)
     fine_scuola = date(2027, 6, 10)
 
     natale_inizio, natale_fine = date(2026, 12, 24), date(2027, 1, 6)
     pasqua_inizio, pasqua_fine = date(2027, 3, 25), date(2027, 3, 30)
 
-    if oggi < inizio_scuola:
-        return 0, inizio_scuola, fine_scuola, True, "Scuola non ancora iniziata"
-    if oggi > fine_scuola:
-        return 0, inizio_scuola, fine_scuola, True, "Anno scolastico terminato"
-
-    giorni_validi = 0
+    turni = []
     curr = inizio_scuola
-    while curr <= oggi:
-        if not (
-            natale_inizio <= curr <= natale_fine
-            or pasqua_inizio <= curr <= pasqua_fine
-        ):
-            giorni_validi += 1
-        curr += timedelta(days=1)
+    t_idx = 1
 
-    numero_turno = (giorni_validi - 1) // 14
-    inizio_t = inizio_scuola + timedelta(days=numero_turno * 14)
-    fine_t = inizio_t + timedelta(days=13)
-    info_turno = f"Turno N° {numero_turno + 1} ({inizio_t.strftime('%d/%m')} - {fine_t.strftime('%d/%m')})"
+    while curr <= fine_scuola:
+        t_inizio = curr
+        dias_contati = 0
 
-    return numero_turno, inizio_scuola, fine_scuola, False, info_turno
+        while dias_contati < 14 and curr <= fine_scuola:
+            if not (
+                natale_inizio <= curr <= natale_fine
+                or pasqua_inizio <= curr <= pasqua_fine
+            ):
+                dias_contati += 1
+            curr += timedelta(days=1)
+
+        t_fine = curr - timedelta(days=1)
+        turni.append(
+            {"numero": t_idx, "inizio": t_inizio, "fine": t_fine, "shift": t_idx - 1}
+        )
+        t_idx += 1
+
+    return turni
 
 
-num_turno, inizio_scuola, fine_scuola, e_fuori_periodo, info_turno = (
-    calcola_turno_corrente()
-)
+TURNI_ANNO = calcola_tutti_i_turni()
+
+
+def ottieni_turno_per_data(data_target):
+    if data_target < TURNI_ANNO[0]["inizio"]:
+        return TURNI_ANNO[0]
+    for t in TURNI_ANNO:
+        if t["inizio"] <= data_target <= t["fine"]:
+            return t
+    return TURNI_ANNO[-1]
+
+
+# Inizializzazione Session State
+if "elenco_personalizzato" not in st.session_state:
+    st.session_state.elenco_personalizzato = ELENCO_BASE.copy()
+
+if "assenti" not in st.session_state:
+    st.session_state.assenti = []
+
+if "data_selezionata" not in st.session_state:
+    oggi = date.today()
+    st.session_state.data_selezionata = max(oggi, date(2026, 9, 15))
+
+turno_attuale = ottieni_turno_per_data(st.session_state.data_selezionata)
 
 
 def ottieni_alunni_ruotati(shift):
-    base = st.session_state.get("elenco_personalizzato", ELENCO_BASE.copy())
+    base = st.session_state.elenco_personalizzato.copy()
     shift = shift % len(base)
     return base[-shift:] + base[:-shift]
 
 
-if "elenco_personalizzato" not in st.session_state:
-    st.session_state.elenco_personalizzato = ELENCO_BASE.copy()
-
 if "alunni" not in st.session_state:
-    st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
+    st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
 
+# --- HEADER APP ---
 st.title("🚀 ClassShift")
 
-# --- BARRA DEI COMANDI ---
-col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-with col_btn1:
-    if st.button("📅 Ripristina Rotazione 2 Settimane", use_container_width=True):
-        st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
-        st.success("Disposizione ripristinata!")
-with col_btn2:
+# --- BARRA SUPERIORE DEI COMANDI ---
+col_c1, col_c2, col_c3, col_c4 = st.columns([1.2, 1, 1, 1])
+
+with col_c1:
+    data_scelta = st.date_input(
+        "📅 Data di riferimento:",
+        value=st.session_state.data_selezionata,
+        min_value=date(2026, 9, 1),
+        max_value=date(2027, 6, 10),
+    )
+    if data_scelta != st.session_state.data_selezionata:
+        st.session_state.data_selezionata = data_scelta
+        t_nuovo = ottieni_turno_per_data(data_scelta)
+        st.session_state.alunni = ottieni_alunni_ruotati(t_nuovo["shift"])
+        st.rerun()
+
+with col_c2:
+    if st.button("🔄 Ripristina Calendario", use_container_width=True):
+        st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
+        st.session_state.assenti = []
+        st.success("Mappa ripristinata!")
+
+with col_c3:
     if st.button("🎲 Casuale (Estemporaneo)", use_container_width=True):
         random.shuffle(st.session_state.alunni)
         st.success("Disposizione rimescolata!")
-with col_btn3:
+
+with col_c4:
     with st.popover("✏️ Modifica Elenco Nomi"):
         testo_nomi = st.text_area(
             "Nomi Alunni",
@@ -105,51 +146,144 @@ with col_btn3:
             while len(righe) < 19:
                 righe.append(f"Posto Libero {len(righe)+1}")
             st.session_state.elenco_personalizzato = righe
-            st.session_state.alunni = ottieni_alunni_ruotati(num_turno)
+            st.session_state.alunni = ottieni_alunni_ruotati(
+                turno_attuale["shift"]
+            )
             st.rerun()
 
+st.caption(
+    f"📌 **Turno N° {turno_attuale['numero']}** (Valido dal {turno_attuale['inizio'].strftime('%d/%m/%Y')} al {turno_attuale['fine'].strftime('%d/%m/%Y')})"
+)
 st.divider()
 
-# SCHEDE DI VISUALIZZAZIONE
-tab_mappa, tab_elenco = st.tabs(
-    ["🗺️ Piantina Mappa Aula", "📋 Vista Elenco Dettagliata"]
+# SCHEDE DI NAVIGAZIONE
+tab_mappa, tab_assenti, tab_calendario = st.tabs(
+    [
+        "🗺️ Piantina Mappa Aula",
+        "❌ Segnala Assenze",
+        "📅 Calendario Turni Anno",
+    ]
 )
 
+alunni_disposizione = st.session_state.alunni
+
+# --- TAB 1: MAPPA AULA ---
 with tab_mappa:
-    # Stile CSS per i banchi grafici
     st.markdown(
         """
         <style>
-        .cattedra-box { background-color: #e63946; color: white; text-align: center; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 25px; }
-        .banco-triple { background-color: #f1faee; border: 2px solid #a8dadc; border-radius: 10px; padding: 10px; text-align: center; font-weight: bold; color: #1d3557; min-height: 70px; }
-        .banco-double { background-color: #f8f9fa; border: 2px solid #457b9d; border-radius: 8px; padding: 12px; text-align: center; font-weight: bold; color: #1d3557; margin-bottom: 10px; }
-        .posto-label { font-size: 11px; color: #6c757d; text-transform: uppercase; margin-bottom: 4px; }
-        .nome-alunno { font-size: 15px; color: #1d3557; }
+        .cattedra-box { 
+            background-color: #e63946; 
+            color: white; 
+            text-align: center; 
+            padding: 8px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 16px; 
+            margin-bottom: 15px; 
+        }
+        
+        .banco-triple, .banco-double { 
+            background-color: #ffffff; 
+            border: 2px solid #457b9d; 
+            border-radius: 6px; 
+            padding: 8px 4px; 
+            text-align: center; 
+            font-weight: bold; 
+            color: #1d3557; 
+            margin-bottom: 8px; 
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .banco-triple {
+            border-color: #a8dadc;
+        }
+        
+        .banco-assente { 
+            background-color: #ffe6e6 !important; 
+            border: 2px solid #e63946 !important; 
+            color: #cc0000 !important; 
+        }
+        
+        .banco-libero { 
+            background-color: #f8f9fa !important; 
+            border: 2px dashed #adb5bd !important; 
+            color: #6c757d !important; 
+        }
+
+        .posto-label { 
+            font-size: 9px; 
+            color: #6c757d; 
+            text-transform: uppercase; 
+            margin-bottom: 2px; 
+            line-height: 1.1;
+        }
+        
+        .nome-alunno { 
+            font-size: 13px; 
+            line-height: 1.2;
+            word-break: break-word;
+        }
+        
+        .tag-assente { 
+            font-size: 10px; 
+            color: #d90429; 
+            font-weight: bold; 
+            margin-top: 3px; 
+        }
         </style>
     """,
         unsafe_allow_html=True,
     )
 
+    if len(st.session_state.assenti) > 0:
+        st.error(
+            f"❌ **Assenti del giorno ({len(st.session_state.assenti)}):** "
+            + ", ".join(st.session_state.assenti)
+        )
+
     st.markdown(
         "<div class='cattedra-box'>👨‍🏫 CATTEDRA</div>", unsafe_allow_html=True
     )
+
+    def render_banco(nome, label, is_triple=False):
+        e_assente = nome in st.session_state.assenti
+        e_vuoto = "Banco Vuoto" in nome or "Posto Libero" in nome
+
+        css_class = "banco-triple" if is_triple else "banco-double"
+        if e_assente:
+            css_class += " banco-assente"
+        elif e_vuoto:
+            css_class += " banco-libero"
+
+        html_content = f"""
+        <div class='{css_class}'>
+            <div class='posto-label'>{label}</div>
+            <div class='nome-alunno'>{"<s>" + nome + "</s>" if e_assente else nome}</div>
+            {"<div class='tag-assente'>❌ ASSENTE</div>" if e_assente else ""}
+        </div>
+        """
+        return html_content
 
     # BANCO TRIPLO
     st.markdown("##### 📌 Prima Fila - Banco Triplo")
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(
-            f"<div class='banco-triple'><div class='posto-label'>Posto 1</div><div class='nome-alunno'>{st.session_state.alunni[0]}</div></div>",
+            render_banco(alunni_disposizione[0], "Posto 1", True),
             unsafe_allow_html=True,
         )
     with m2:
         st.markdown(
-            f"<div class='banco-triple'><div class='posto-label'>Posto 2</div><div class='nome-alunno'>{st.session_state.alunni[1]}</div></div>",
+            render_banco(alunni_disposizione[1], "Posto 2", True),
             unsafe_allow_html=True,
         )
     with m3:
         st.markdown(
-            f"<div class='banco-triple'><div class='posto-label'>Posto 3</div><div class='nome-alunno'>{st.session_state.alunni[2]}</div></div>",
+            render_banco(alunni_disposizione[2], "Posto 3", True),
             unsafe_allow_html=True,
         )
 
@@ -159,34 +293,84 @@ with tab_mappa:
     idx = 3
     for f in range(1, 5):
         st.caption(f"Fila {f}")
-        c_sx1, c_sx2, c_gap, c_dx1, c_dx2 = st.columns([2, 2, 0.5, 2, 2])
+        c_sx1, c_sx2, c_gap, c_dx1, c_dx2 = st.columns([2, 2, 0.4, 2, 2])
 
         with c_sx1:
             st.markdown(
-                f"<div class='banco-double'><div class='posto-label'>Fila {f} • SX 1</div><div class='nome-alunno'>{st.session_state.alunni[idx]}</div></div>",
+                render_banco(alunni_disposizione[idx], f"F{f} · SX1"),
                 unsafe_allow_html=True,
             )
             idx += 1
         with c_sx2:
             st.markdown(
-                f"<div class='banco-double'><div class='posto-label'>Fila {f} • SX 2</div><div class='nome-alunno'>{st.session_state.alunni[idx]}</div></div>",
+                render_banco(alunni_disposizione[idx], f"F{f} · SX2"),
                 unsafe_allow_html=True,
             )
             idx += 1
         with c_dx1:
             st.markdown(
-                f"<div class='banco-double'><div class='posto-label'>Fila {f} • DX 1</div><div class='nome-alunno'>{st.session_state.alunni[idx]}</div></div>",
+                render_banco(alunni_disposizione[idx], f"F{f} · DX1"),
                 unsafe_allow_html=True,
             )
             idx += 1
         with c_dx2:
             st.markdown(
-                f"<div class='banco-double'><div class='posto-label'>Fila {f} • DX 2</div><div class='nome-alunno'>{st.session_state.alunni[idx]}</div></div>",
+                render_banco(alunni_disposizione[idx], f"F{f} · DX2"),
                 unsafe_allow_html=True,
             )
             idx += 1
 
-with tab_elenco:
-    st.subheader("Elenco completo dei posti")
-    for i, nome in enumerate(st.session_state.alunni, 1):
-        st.write(f"**Posto {i}:** {nome}")
+# --- TAB 2: SEGNALA ASSENZE ---
+with tab_assenti:
+    st.subheader("📋 Registro Assenze del Giorno")
+
+    col_info, col_btn = st.columns([3, 1])
+
+    with col_info:
+        st.write("Spunta gli alunni assenti. I loro banchi diventeranno rossi nella mappa.")
+
+    with col_btn:
+        if st.button("❌ Azzera Assenze", use_container_width=True):
+            st.session_state.assenti = []
+            st.rerun()
+
+    st.divider()
+
+    alunni_effettivi = [
+        n
+        for n in st.session_state.elenco_personalizzato
+        if not n.startswith("---")
+    ]
+    col_a1, col_a2 = st.columns(2)
+
+    nuovi_assenti = []
+    for i, nome in enumerate(alunni_effettivi):
+        target_col = col_a1 if i % 2 == 0 else col_a2
+        with target_col:
+            is_checked = nome in st.session_state.assenti
+            if st.checkbox(
+                nome, value=is_checked, key=f"chk_{i}_{nome}"
+            ):
+                nuovi_assenti.append(nome)
+
+    if nuovi_assenti != st.session_state.assenti:
+        st.session_state.assenti = nuovi_assenti
+        st.rerun()
+
+# --- TAB 3: CALENDARIO ANNUALE TURNI ---
+with tab_calendario:
+    st.subheader("📅 Programmazione Turni A.S. 2026/2027")
+
+    data_turni = []
+    for t in TURNI_ANNO:
+        e_corrente = "👉 ATTUALE" if t["numero"] == turno_attuale["numero"] else ""
+        data_turni.append(
+            {
+                "Turno": f"Turno {t['numero']}",
+                "Inizio": t["inizio"].strftime("%d/%m/%Y"),
+                "Fine": t["fine"].strftime("%d/%m/%Y"),
+                "Stato": e_corrente,
+            }
+        )
+
+    st.dataframe(data_turni, use_container_width=True, hide_index=True)
