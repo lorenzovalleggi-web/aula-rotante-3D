@@ -87,8 +87,7 @@ if "assenti" not in st.session_state:
     st.session_state.assenti = []
 
 if "data_selezionata" not in st.session_state:
-    oggi = date.today()
-    st.session_state.data_selezionata = max(oggi, date(2026, 9, 15))
+    st.session_state.data_selezionata = date(2026, 9, 16)
 
 turno_attuale = ottieni_turno_per_data(st.session_state.data_selezionata)
 
@@ -102,18 +101,154 @@ def ottieni_alunni_ruotati(shift):
 if "alunni" not in st.session_state:
     st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
 
-# --- HEADER APP ---
-st.title("🚀 ClassShift")
+# --- HEADER COMPATTO ---
+st.markdown(
+    """
+    <style>
+    /* STILI GLOBALI E PALETTE LIM (Alto Contrasto) */
+    .title-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+        color: #ffffff;
+        padding: 12px 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .title-text {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+    
+    /* BADGE CONTATORI */
+    .badge-container {
+        display: flex;
+        gap: 10px;
+    }
+    .badge-presenti {
+        background-color: #059669;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .badge-assenti {
+        background-color: #dc2626;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+    }
 
-# --- BARRA SUPERIORE DEI COMANDI ---
-col_c1, col_c2, col_c3, col_c4 = st.columns([1.2, 1, 1, 1])
+    /* STILI CATTEDRA E BANCHI AD ALTO CONTRASTO */
+    .cattedra-box { 
+        background: #0284c7; 
+        color: white; 
+        text-align: center; 
+        padding: 10px; 
+        border-radius: 8px; 
+        font-weight: 800; 
+        font-size: 15px; 
+        letter-spacing: 1px;
+        margin-bottom: 20px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    
+    .banco-card { 
+        background-color: #ffffff; 
+        border: 2px solid #0284c7; 
+        border-radius: 8px; 
+        padding: 8px 4px; 
+        text-align: center; 
+        font-weight: bold; 
+        color: #0f172a; 
+        margin-bottom: 10px; 
+        min-height: 65px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+        transition: transform 0.1s ease;
+    }
 
-with col_c1:
+    .banco-triple {
+        border-color: #2563eb;
+    }
+    
+    .banco-assente { 
+        background-color: #fef2f2 !important; 
+        border: 2px solid #dc2626 !important; 
+        color: #991b1b !important; 
+    }
+    
+    .banco-libero { 
+        background-color: #f8fafc !important; 
+        border: 2px dashed #94a3b8 !important; 
+        color: #64748b !important; 
+    }
+
+    .posto-label { 
+        font-size: 10px; 
+        color: #475569; 
+        text-transform: uppercase; 
+        font-weight: 700;
+        margin-bottom: 2px; 
+    }
+    
+    .nome-alunno { 
+        font-size: 14px; 
+        font-weight: 700;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+    
+    .tag-assente { 
+        font-size: 10px; 
+        color: #dc2626; 
+        font-weight: 900; 
+        margin-top: 3px; 
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Calcolo alunni effettivi
+alunni_reali = [
+    n for n in st.session_state.elenco_personalizzato if not n.startswith("---")
+]
+tot_assenti = len(st.session_state.assenti)
+tot_presenti = len(alunni_reali) - tot_assenti
+
+# Header con Badge
+st.markdown(
+    f"""
+    <div class="title-banner">
+        <div class="title-text">🚀 ClassShift</div>
+        <div class="badge-container">
+            <span class="badge-presenti">🟢 Presenti: {tot_presenti}</span>
+            <span class="badge-assenti">🔴 Assenti: {tot_assenti}</span>
+        </div>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
+
+# --- BARRA DEI COMANDI COMPATTA ---
+c_data, c_reset, c_random, c_edit = st.columns([1.3, 1, 1, 1])
+
+with c_data:
     data_scelta = st.date_input(
-        "📅 Data di riferimento:",
+        "📅 Data:",
         value=st.session_state.data_selezionata,
         min_value=date(2026, 9, 1),
         max_value=date(2027, 6, 10),
+        label_visibility="collapsed",
     )
     if data_scelta != st.session_state.data_selezionata:
         st.session_state.data_selezionata = data_scelta
@@ -121,25 +256,25 @@ with col_c1:
         st.session_state.alunni = ottieni_alunni_ruotati(t_nuovo["shift"])
         st.rerun()
 
-with col_c2:
-    if st.button("🔄 Ripristina Calendario", use_container_width=True):
+with c_reset:
+    if st.button("🔄 Ripristina", use_container_width=True):
         st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
         st.session_state.assenti = []
-        st.success("Mappa ripristinata!")
+        st.rerun()
 
-with col_c3:
-    if st.button("🎲 Casuale (Estemporaneo)", use_container_width=True):
+with c_random:
+    if st.button("🎲 Casuale", use_container_width=True):
         random.shuffle(st.session_state.alunni)
-        st.success("Disposizione rimescolata!")
+        st.rerun()
 
-with col_c4:
-    with st.popover("✏️ Modifica Elenco Nomi"):
+with c_edit:
+    with st.popover("✏️ Modifica Nomi"):
         testo_nomi = st.text_area(
-            "Nomi Alunni",
+            "Nomi Alunni (uno per riga)",
             value="\n".join(st.session_state.elenco_personalizzato),
-            height=300,
+            height=250,
         )
-        if st.button("Salva Nomi", type="primary"):
+        if st.button("Salva Elenco", type="primary"):
             righe = [
                 r.strip() for r in testo_nomi.split("\n") if r.strip()
             ][:19]
@@ -152,99 +287,19 @@ with col_c4:
             st.rerun()
 
 st.caption(
-    f"📌 **Turno N° {turno_attuale['numero']}** (Valido dal {turno_attuale['inizio'].strftime('%d/%m/%Y')} al {turno_attuale['fine'].strftime('%d/%m/%Y')})"
+    f"📌 **Turno {turno_attuale['numero']}** ({turno_attuale['inizio'].strftime('%d/%m')} - {turno_attuale['fine'].strftime('%d/%m/%Y')})"
 )
 st.divider()
 
 # SCHEDE DI NAVIGAZIONE
 tab_mappa, tab_assenti, tab_calendario = st.tabs(
-    [
-        "🗺️ Piantina Mappa Aula",
-        "❌ Segnala Assenze",
-        "📅 Calendario Turni Anno",
-    ]
+    ["🗺️ Piantina Mappa Aula", "❌ Segnala Assenze", "📅 Calendario Turni"]
 )
 
 alunni_disposizione = st.session_state.alunni
 
 # --- TAB 1: MAPPA AULA ---
 with tab_mappa:
-    st.markdown(
-        """
-        <style>
-        .cattedra-box { 
-            background-color: #e63946; 
-            color: white; 
-            text-align: center; 
-            padding: 8px; 
-            border-radius: 6px; 
-            font-weight: bold; 
-            font-size: 16px; 
-            margin-bottom: 15px; 
-        }
-        
-        .banco-triple, .banco-double { 
-            background-color: #ffffff; 
-            border: 2px solid #457b9d; 
-            border-radius: 6px; 
-            padding: 8px 4px; 
-            text-align: center; 
-            font-weight: bold; 
-            color: #1d3557; 
-            margin-bottom: 8px; 
-            min-height: 60px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        
-        .banco-triple {
-            border-color: #a8dadc;
-        }
-        
-        .banco-assente { 
-            background-color: #ffe6e6 !important; 
-            border: 2px solid #e63946 !important; 
-            color: #cc0000 !important; 
-        }
-        
-        .banco-libero { 
-            background-color: #f8f9fa !important; 
-            border: 2px dashed #adb5bd !important; 
-            color: #6c757d !important; 
-        }
-
-        .posto-label { 
-            font-size: 9px; 
-            color: #6c757d; 
-            text-transform: uppercase; 
-            margin-bottom: 2px; 
-            line-height: 1.1;
-        }
-        
-        .nome-alunno { 
-            font-size: 13px; 
-            line-height: 1.2;
-            word-break: break-word;
-        }
-        
-        .tag-assente { 
-            font-size: 10px; 
-            color: #d90429; 
-            font-weight: bold; 
-            margin-top: 3px; 
-        }
-        </style>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    if len(st.session_state.assenti) > 0:
-        st.error(
-            f"❌ **Assenti del giorno ({len(st.session_state.assenti)}):** "
-            + ", ".join(st.session_state.assenti)
-        )
-
     st.markdown(
         "<div class='cattedra-box'>👨‍🏫 CATTEDRA</div>", unsafe_allow_html=True
     )
@@ -253,7 +308,9 @@ with tab_mappa:
         e_assente = nome in st.session_state.assenti
         e_vuoto = "Banco Vuoto" in nome or "Posto Libero" in nome
 
-        css_class = "banco-triple" if is_triple else "banco-double"
+        css_class = "banco-card"
+        if is_triple:
+            css_class += " banco-triple"
         if e_assente:
             css_class += " banco-assente"
         elif e_vuoto:
@@ -292,7 +349,6 @@ with tab_mappa:
 
     idx = 3
     for f in range(1, 5):
-        st.caption(f"Fila {f}")
         c_sx1, c_sx2, c_gap, c_dx1, c_dx2 = st.columns([2, 2, 0.4, 2, 2])
 
         with c_sx1:
@@ -325,32 +381,25 @@ with tab_assenti:
     st.subheader("📋 Registro Assenze del Giorno")
 
     col_info, col_btn = st.columns([3, 1])
-
     with col_info:
-        st.write("Spunta gli alunni assenti. I loro banchi diventeranno rossi nella mappa.")
-
+        st.write(
+            "Spunta gli alunni assenti. I loro banchi diventeranno rossi nella piantina."
+        )
     with col_btn:
-        if st.button("❌ Azzera Assenze", use_container_width=True):
+        if st.button("❌ Azzera Tutte", use_container_width=True):
             st.session_state.assenti = []
             st.rerun()
 
     st.divider()
 
-    alunni_effettivi = [
-        n
-        for n in st.session_state.elenco_personalizzato
-        if not n.startswith("---")
-    ]
     col_a1, col_a2 = st.columns(2)
 
     nuovi_assenti = []
-    for i, nome in enumerate(alunni_effettivi):
+    for i, nome in enumerate(alunni_reali):
         target_col = col_a1 if i % 2 == 0 else col_a2
         with target_col:
             is_checked = nome in st.session_state.assenti
-            if st.checkbox(
-                nome, value=is_checked, key=f"chk_{i}_{nome}"
-            ):
+            if st.checkbox(nome, value=is_checked, key=f"chk_{i}_{nome}"):
                 nuovi_assenti.append(nome)
 
     if nuovi_assenti != st.session_state.assenti:
@@ -363,7 +412,9 @@ with tab_calendario:
 
     data_turni = []
     for t in TURNI_ANNO:
-        e_corrente = "👉 ATTUALE" if t["numero"] == turno_attuale["numero"] else ""
+        e_corrente = (
+            "👉 ATTUALE" if t["numero"] == turno_attuale["numero"] else ""
+        )
         data_turni.append(
             {
                 "Turno": f"Turno {t['numero']}",
