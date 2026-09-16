@@ -4,13 +4,13 @@ import streamlit as st
 
 # Configurazione pagina
 st.set_page_config(
-    page_title="ClassShift • Gestione Banchi",
-    page_icon="🚀",
+    page_title="BancoFlow • Gestione Aula",
+    page_icon="🧩",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Elenco iniziale degli alunni
+# Elenco base di 19 alunni (incluso Olivieri Ryan)
 ELENCO_BASE = [
     "Calzerano Filippo",
     "Michele Xhaxhi",
@@ -30,7 +30,7 @@ ELENCO_BASE = [
     "Elisa Duli",
     "Luca Tagariello",
     "Derbali Mohamed",
-    "--- Posto Libero ---",
+    "Olivieri Ryan",
 ]
 
 
@@ -88,7 +88,6 @@ if "data_selezionata" not in st.session_state:
     oggi = date.today()
     st.session_state.data_selezionata = max(oggi, date(2026, 9, 15))
 
-# STORICO ASSENZE GLOBALI { "YYYY-MM-DD": ["Nome 1", "Nome 2"] }
 if "storico_assenze" not in st.session_state:
     st.session_state.storico_assenze = {}
 
@@ -101,6 +100,8 @@ turno_attuale = ottieni_turno_per_data(st.session_state.data_selezionata)
 
 def ottieni_alunni_ruotati(shift):
     base = st.session_state.elenco_personalizzato.copy()
+    if not base:
+        return []
     shift = shift % len(base)
     return base[-shift:] + base[:-shift]
 
@@ -108,7 +109,7 @@ def ottieni_alunni_ruotati(shift):
 if "alunni" not in st.session_state:
     st.session_state.alunni = ottieni_alunni_ruotati(turno_attuale["shift"])
 
-# --- FUNZIONI UTILI PER CONTARE LE ASSENZE ---
+
 def calcola_totale_assenze_alunno(nome):
     tot = 0
     for data_str, assenti in st.session_state.storico_assenze.items():
@@ -117,7 +118,7 @@ def calcola_totale_assenze_alunno(nome):
     return tot
 
 
-# --- CSS E STILE ---
+# --- CSS PER L'INTERFACCIA LIM ---
 st.markdown(
     """
     <style>
@@ -139,7 +140,6 @@ st.markdown(
     .banco-card { background-color: #ffffff; border: 2px solid #0284c7; border-radius: 8px; padding: 8px 4px; text-align: center; font-weight: bold; color: #0f172a; margin-bottom: 10px; min-height: 65px; display: flex; flex-direction: column; justify-content: center; }
     .banco-triple { border-color: #2563eb; }
     .banco-assente { background-color: #fef2f2 !important; border: 2px solid #dc2626 !important; color: #991b1b !important; }
-    .banco-libero { background-color: #f8fafc !important; border: 2px dashed #94a3b8 !important; color: #64748b !important; }
     .posto-label { font-size: 10px; color: #475569; text-transform: uppercase; font-weight: 700; }
     .nome-alunno { font-size: 14px; font-weight: 700; line-height: 1.2; word-break: break-word; }
     .tag-assente { font-size: 10px; color: #dc2626; font-weight: 900; margin-top: 3px; }
@@ -148,18 +148,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Calcolo assenti del giorno e alunni effettivi
-alunni_reali = [
-    n for n in st.session_state.elenco_personalizzato if not n.startswith("---")
-]
+alunni_reali = st.session_state.elenco_personalizzato
 assenti_oggi = st.session_state.storico_assenze[str_data]
 tot_assenti = len(assenti_oggi)
 tot_presenti = len(alunni_reali) - tot_assenti
 
+# Header
 st.markdown(
     f"""
     <div class="title-banner">
-        <div class="title-text">🚀 ClassShift</div>
+        <div class="title-text">🧩 BancoFlow ({len(alunni_reali)} Alunni)</div>
         <div class="badge-container">
             <span class="badge-presenti">🟢 Presenti: {tot_presenti}</span>
             <span class="badge-assenti">🔴 Assenti oggi: {tot_assenti}</span>
@@ -169,7 +167,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA DEI COMANDI ---
+# BARRA COMANDI
 c_data, c_reset, c_random, c_edit = st.columns([1.3, 1, 1, 1])
 
 with c_data:
@@ -200,16 +198,12 @@ with c_random:
 with c_edit:
     with st.popover("✏️ Modifica Nomi"):
         testo_nomi = st.text_area(
-            "Nomi Alunni",
+            "Nomi Alunni (uno per riga)",
             value="\n".join(st.session_state.elenco_personalizzato),
-            height=250,
+            height=280,
         )
         if st.button("Salva Elenco", type="primary"):
-            righe = [
-                r.strip() for r in testo_nomi.split("\n") if r.strip()
-            ][:19]
-            while len(righe) < 19:
-                righe.append(f"Posto Libero {len(righe)+1}")
+            righe = [r.strip() for r in testo_nomi.split("\n") if r.strip()]
             st.session_state.elenco_personalizzato = righe
             st.session_state.alunni = ottieni_alunni_ruotati(
                 turno_attuale["shift"]
@@ -221,7 +215,7 @@ st.caption(
 )
 st.divider()
 
-# SCHEDE
+# TAB
 tab_mappa, tab_assenti, tab_report, tab_calendario = st.tabs(
     [
         "🗺️ Mappa Aula",
@@ -233,7 +227,7 @@ tab_mappa, tab_assenti, tab_report, tab_calendario = st.tabs(
 
 alunni_disposizione = st.session_state.alunni
 
-# --- TAB 1: MAPPA AULA ---
+# --- MAPPA AULA ---
 with tab_mappa:
     st.markdown(
         "<div class='cattedra-box'>👨‍🏫 CATTEDRA</div>", unsafe_allow_html=True
@@ -241,15 +235,11 @@ with tab_mappa:
 
     def render_banco(nome, label, is_triple=False):
         e_assente = nome in assenti_oggi
-        e_vuoto = "Banco Vuoto" in nome or "Posto Libero" in nome
-
         css_class = "banco-card"
         if is_triple:
             css_class += " banco-triple"
         if e_assente:
             css_class += " banco-assente"
-        elif e_vuoto:
-            css_class += " banco-libero"
 
         return f"""
         <div class='{css_class}'>
@@ -259,65 +249,74 @@ with tab_mappa:
         </div>
         """
 
+    # Banco Triplo (Posti 1, 2, 3)
     st.markdown("##### 📌 Prima Fila - Banco Triplo")
     m1, m2, m3 = st.columns(3)
-    with m1:
-        st.markdown(
-            render_banco(alunni_disposizione[0], "Posto 1", True),
-            unsafe_allow_html=True,
-        )
-    with m2:
-        st.markdown(
-            render_banco(alunni_disposizione[1], "Posto 2", True),
-            unsafe_allow_html=True,
-        )
-    with m3:
-        st.markdown(
-            render_banco(alunni_disposizione[2], "Posto 3", True),
-            unsafe_allow_html=True,
-        )
+    if len(alunni_disposizione) >= 1:
+        with m1:
+            st.markdown(
+                render_banco(alunni_disposizione[0], "Posto 1", True),
+                unsafe_allow_html=True,
+            )
+    if len(alunni_disposizione) >= 2:
+        with m2:
+            st.markdown(
+                render_banco(alunni_disposizione[1], "Posto 2", True),
+                unsafe_allow_html=True,
+            )
+    if len(alunni_disposizione) >= 3:
+        with m3:
+            st.markdown(
+                render_banco(alunni_disposizione[2], "Posto 3", True),
+                unsafe_allow_html=True,
+            )
 
     st.write("")
     st.markdown("##### 👥 Banchi Doppi")
 
+    # Banchi doppi per i restanti alunni
     idx = 3
     for f in range(1, 5):
         c_sx1, c_sx2, c_gap, c_dx1, c_dx2 = st.columns([2, 2, 0.4, 2, 2])
 
-        with c_sx1:
-            st.markdown(
-                render_banco(alunni_disposizione[idx], f"F{f} · SX1"),
-                unsafe_allow_html=True,
-            )
-            idx += 1
-        with c_sx2:
-            st.markdown(
-                render_banco(alunni_disposizione[idx], f"F{f} · SX2"),
-                unsafe_allow_html=True,
-            )
-            idx += 1
-        with c_dx1:
-            st.markdown(
-                render_banco(alunni_disposizione[idx], f"F{f} · DX1"),
-                unsafe_allow_html=True,
-            )
-            idx += 1
-        with c_dx2:
-            st.markdown(
-                render_banco(alunni_disposizione[idx], f"F{f} · DX2"),
-                unsafe_allow_html=True,
-            )
-            idx += 1
+        if idx < len(alunni_disposizione):
+            with c_sx1:
+                st.markdown(
+                    render_banco(alunni_disposizione[idx], f"F{f} · SX1"),
+                    unsafe_allow_html=True,
+                )
+                idx += 1
+        if idx < len(alunni_disposizione):
+            with c_sx2:
+                st.markdown(
+                    render_banco(alunni_disposizione[idx], f"F{f} · SX2"),
+                    unsafe_allow_html=True,
+                )
+                idx += 1
+        if idx < len(alunni_disposizione):
+            with c_dx1:
+                st.markdown(
+                    render_banco(alunni_disposizione[idx], f"F{f} · DX1"),
+                    unsafe_allow_html=True,
+                )
+                idx += 1
+        if idx < len(alunni_disposizione):
+            with c_dx2:
+                st.markdown(
+                    render_banco(alunni_disposizione[idx], f"F{f} · DX2"),
+                    unsafe_allow_html=True,
+                )
+                idx += 1
 
-# --- TAB 2: REGISTRO OGGI ---
+# --- REGISTRO ASSENZE OGGI ---
 with tab_assenti:
     st.subheader(
-        f"📋 Segnala Assenze per il giorno: {st.session_state.data_selezionata.strftime('%d/%m/%Y')}"
+        f"📋 Assenze del giorno: {st.session_state.data_selezionata.strftime('%d/%m/%Y')}"
     )
 
     col_info, col_btn = st.columns([3, 1])
     with col_info:
-        st.write("Spunta gli alunni assenti nella data selezionata.")
+        st.write("Spunta gli alunni assenti.")
     with col_btn:
         if st.button("❌ Azzera Oggi", use_container_width=True):
             st.session_state.storico_assenze[str_data] = []
@@ -333,7 +332,6 @@ with tab_assenti:
         tot_anno = calcola_totale_assenze_alunno(nome)
         with target_col:
             is_checked = nome in assenti_oggi
-            # Mostra anche il totale anno accanto al nome
             if st.checkbox(
                 f"{nome}  *(Totale Anno: {tot_anno})*",
                 value=is_checked,
@@ -345,43 +343,28 @@ with tab_assenti:
         st.session_state.storico_assenze[str_data] = nuovi_assenti_oggi
         st.rerun()
 
-# --- TAB 3: TOTALE ASSENZE ANNO ---
+# --- REPORT ANNUALE ---
 with tab_report:
-    st.subheader("📊 Riepilogo Assenze Anno Scolastico")
-
-    report_data = []
-    for nome in alunni_reali:
-        tot_giorni = calcola_totale_assenze_alunno(nome)
-        report_data.append(
-            {
-                "Alunno": nome,
-                "Totale Giorni Assente": tot_giorni,
-            }
-        )
-
-    # Ordina per numero di assenze decrescente
+    st.subheader("📊 Totale Assenze Anno Scolastico")
+    report_data = [
+        {"Alunno": nome, "Totale Giorni Assente": calcola_totale_assenze_alunno(nome)}
+        for nome in alunni_reali
+    ]
     report_data = sorted(
         report_data, key=lambda x: x["Totale Giorni Assente"], reverse=True
     )
-
     st.dataframe(report_data, use_container_width=True, hide_index=True)
 
-# --- TAB 4: CALENDARIO TURNI ---
+# --- CALENDARIO TURNI ---
 with tab_calendario:
     st.subheader("📅 Programmazione Turni A.S. 2026/2027")
-
-    data_turni = []
-    for t in TURNI_ANNO:
-        e_corrente = (
-            "👉 ATTUALE" if t["numero"] == turno_attuale["numero"] else ""
-        )
-        data_turni.append(
-            {
-                "Turno": f"Turno {t['numero']}",
-                "Inizio": t["inizio"].strftime("%d/%m/%Y"),
-                "Fine": t["fine"].strftime("%d/%m/%Y"),
-                "Stato": e_corrente,
-            }
-        )
-
+    data_turni = [
+        {
+            "Turno": f"Turno {t['numero']}",
+            "Inizio": t["inizio"].strftime("%d/%m/%Y"),
+            "Fine": t["fine"].strftime("%d/%m/%Y"),
+            "Stato": "👉 ATTUALE" if t["numero"] == turno_attuale["numero"] else "",
+        }
+        for t in TURNI_ANNO
+    ]
     st.dataframe(data_turni, use_container_width=True, hide_index=True)
