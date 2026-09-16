@@ -118,11 +118,17 @@ def calcola_totale_assenze_alunno(nome):
     return tot
 
 
-# --- STILI CSS INTERFACCIA ---
+# --- STILI CSS CON ANIMAZIONE BANCHI SCORREVOLI ---
 st.markdown(
     """
     <style>
+    @keyframes scorriBanchi {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+    
     .title-banner {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -131,9 +137,35 @@ st.markdown(
         padding: 12px 20px;
         border-radius: 10px;
         margin-bottom: 15px;
+        overflow: hidden;
     }
-    .title-text { font-size: 22px; font-weight: 800; }
-    .badge-container { display: flex; gap: 10px; }
+    
+    .banchi-stream {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        opacity: 0.15;
+        pointer-events: none;
+        animation: scorriBanchi 12s linear infinite;
+        font-size: 24px;
+        letter-spacing: 25px;
+    }
+
+    .title-text { 
+        font-size: 22px; 
+        font-weight: 800; 
+        z-index: 2; 
+    }
+    .badge-container { 
+        display: flex; 
+        gap: 10px; 
+        z-index: 2; 
+    }
     .badge-presenti { background-color: #059669; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
     .badge-assenti { background-color: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
     .cattedra-box { background: #0284c7; color: white; text-align: center; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 15px; margin-bottom: 20px; }
@@ -153,10 +185,11 @@ assenti_oggi = st.session_state.storico_assenze[str_data]
 tot_assenti = len(assenti_oggi)
 tot_presenti = len(alunni_reali) - tot_assenti
 
-# Header
+# Header con animazione
 st.markdown(
     f"""
     <div class="title-banner">
+        <div class="banchi-stream">🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑 🪑</div>
         <div class="title-text">🏫 BancoFlow • Classe 3D ({len(alunni_reali)} Alunni)</div>
         <div class="badge-container">
             <span class="badge-presenti">🟢 Presenti: {tot_presenti}</span>
